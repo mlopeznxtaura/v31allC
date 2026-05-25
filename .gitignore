@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Local env
+.venv/
+
+# Runtime outputs
+telemetry/
+.pytest_cache/
+corpus_v31_ingested.jsonl
