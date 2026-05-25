@@ -1,0 +1,16 @@
+# V31all requirements
+# Core: stdlib only for schema/corpus generation
+# Optional torch for model training (not required for corpus gen or tests)
+
+# Required for corpus generation (all stdlib):
+# json, math, hashlib, time, dataclasses, pathlib, typing — no installs needed
+
+# Optional ML:
+# torch>=2.0.0
+# numpy>=1.24.0
+
+# Optional experiment tracking:
+# wandb>=0.15.0
+
+# Dev:
+# pytest>=7.0.0
