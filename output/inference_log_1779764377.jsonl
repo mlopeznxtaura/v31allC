@@ -1,0 +1,1 @@
+{"turn": 1, "V": 0.569173, "next_frame_prediction": "Entry 2 will be in state [plateau] at progress=1.0%.", "language_token_output": "retrain", "gate_status": "BUILDING", "M1": 1.6931, "M2": 0.9901, "M3": 1.0, "binary_scalar": 0.733, "geometry_scalar": 0.01, "language_scalar": 0.3857}

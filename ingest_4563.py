@@ -9,19 +9,14 @@ OUT = Path('/mnt/d/NextAura/v31all_1/v31allC/output/corpus_4563.jsonl')
 
 raw = SRC.read_text(encoding='utf-8', errors='replace')
 
-# Repair missing commas between top-level objects
-try:
-    data = json.loads(raw)
-except json.JSONDecodeError:
-    fixed = re.sub(r'\}\s*\n(\s*)\{', r'},\n\1{', raw)
-    try:
-        data = json.loads(fixed)
-        print(f'Repaired: {len(data)} records')
-    except json.JSONDecodeError as e:
-        print(f'Still broken at {e.lineno}:{e.colno} — {e.msg}')
-        sys.exit(1)
-else:
-    print(f'Clean parse: {len(data)} records')
+from gui.stage1.ingest import Stage1Ingest
+
+# Parse with Stage1Ingest robust parser which repairs missing commas and extracts broken structures
+data = Stage1Ingest.parse_json(raw)
+if not data:
+    print('Failed to parse any records from the raw JSON file!')
+    sys.exit(1)
+print(f'Successfully parsed {len(data)} records via Stage1Ingest.')
 
 # Normalize each record to binary/geometry/language
 def extract(rec):
@@ -40,7 +35,6 @@ for i, rec in enumerate(data):
         continue
     record = builder.build(binary_text=b, geometry_text=g, language_text=l)
     lines.append(json.dumps(record))
-
 OUT.write_text('\n'.join(lines), encoding='utf-8')
 print(f'Wrote {len(lines)} records ({skipped} skipped) -> {OUT}')
-print(f'Sample V values: {[json.loads(l)[" _meta\][\V\]
+print(f'Sample V values: {[json.loads(l)["_meta"]["V"] for l in lines[:5]]}')
