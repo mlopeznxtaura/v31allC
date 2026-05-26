@@ -30,6 +30,7 @@ import time
 
 from stage1.core.m_scalars import M1State, M2State, M3State, compute_m_scalars
 from stage1.core.layer2_scalars import build_layer2
+from stage1.core.output_synthesis import OutputSynthesizer
 from stage1.core.triangulation import (
     TriangulationState,
     triangulate,
@@ -111,7 +112,7 @@ class RecordBuilder:
         )
 
         # Triangulation: receives all 7 (6 external + self-momentum)
-        v, nfp, lto = triangulate(
+        v, nfp_tri, lto_tri = triangulate(
             M1=m_vals["M1"],
             M2=m_vals["M2"],
             M3=m_vals["M3"],
@@ -119,6 +120,17 @@ class RecordBuilder:
             geometry=l2["geometry_scalar"],
             language=l2["language_scalar"],
             state=self._tri,
+        )
+        
+        # Synthesize outputs from 7 inputs (includes pixel frame)
+        nfp, lto, pixel_frame = OutputSynthesizer.synthesize(
+            M1=m_vals["M1"],
+            M2=m_vals["M2"],
+            M3=m_vals["M3"],
+            binary=l2["binary_scalar"],
+            geometry=l2["geometry_scalar"],
+            language=l2["language_scalar"],
+            V=v
         )
 
         math_rel = build_mathematical_relationship(
@@ -165,6 +177,8 @@ class RecordBuilder:
             "geometry_scalar": round(l2["geometry_scalar"], 6),
             "language_scalar": round(l2["language_scalar"], 6),
             "timestamp": round(time.time(), 3),
+            "pixel_frame_shape": pixel_frame.shape,
+            "pixel_frame_base64": __import__('base64').b64encode(pixel_frame.tobytes()).decode(),
         }
 
         return record

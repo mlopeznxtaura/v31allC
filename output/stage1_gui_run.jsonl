@@ -1,0 +1,5 @@
+{"event_type": "gui_startup", "timestamp": 1779754800.067, "message": "Stage1 GUI loaded", "data": {}}
+{"event_type": "user_input", "timestamp": 1779754807.971, "message": "Data pasted: jsonl format", "data": {"format": "jsonl", "records": 50}}
+{"event_type": "scalar_compute", "timestamp": 1779754807.971, "message": "Auto-computed after ingest", "data": {"M1": 1.6931, "M2": 0.9901, "M3": 0.9459}}
+{"event_type": "scalar_compute", "timestamp": 1779754816.98, "message": "M-Scalars computed: M1=1.8959, M2=0.9804, M3=0.9009", "data": {"M1": 1.89588, "M2": 0.980392, "M3": 0.900916, "V": 0.543862, "stimulus": 1.0}}
+{"event_type": "gui_button_click", "timestamp": 1779754842.714, "message": "Button clicked: Export JSONL", "data": {"button": "Export JSONL", "action": "Exported 50 records"}}
