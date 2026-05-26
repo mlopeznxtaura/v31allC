@@ -9,3 +9,4 @@ __pycache__/
 telemetry/
 .pytest_cache/
 corpus_v31_ingested.jsonl
+models/
