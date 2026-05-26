@@ -82,16 +82,16 @@ class OutputSynthesizer:
         h2, w2 = height // 2, width // 2
         
         # Top-left: M1 intensity (unbounded exploration)
-        frame[:h2, :w2, 0] = int(min(M1 * 100, 255))
+        frame[:h2, :w2, 0] = int(min(max(M1 * 100, 0), 255))
         
         # Top-right: M2 intensity (efficiency)
-        frame[:h2, w2:, 1] = int(M2 * 255)
+        frame[:h2, w2:, 1] = int(min(max(M2 * 255, 0), 255))
         
         # Bottom-left: M3 intensity (meta-control)
-        frame[h2:, :w2, 2] = int(M3 * 255)
+        frame[h2:, :w2, 2] = int(min(max(M3 * 255, 0), 255))
         
         # Bottom-right: V brightness (value function) - mix all channels
-        frame[h2:, w2:] = int(V * 255)
+        frame[h2:, w2:] = int(min(max(V * 255, 0), 255))
         
         # Center circle: 7-input interaction
         cy, cx = height // 2, width // 2
@@ -101,10 +101,10 @@ class OutputSynthesizer:
         
         # Center color is weighted average of all 7 inputs
         center_color = np.array([
-            int(M1 * 50 + binary * 100),  # Red channel
-            int(M2 * 150 + geometry * 100),  # Green channel
-            int(M3 * 150 + language * 100)   # Blue channel
-        ])
+            min(max(int(M1 * 50 + binary * 100), 0), 255),  # Red channel
+            min(max(int(M2 * 150 + geometry * 100), 0), 255),  # Green channel
+            min(max(int(M3 * 150 + language * 100), 0), 255)   # Blue channel
+        ], dtype=np.uint8)
         frame[center_mask] = center_color
         
         # Add rings based on input activity
