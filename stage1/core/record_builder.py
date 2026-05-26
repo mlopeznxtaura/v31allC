@@ -1,4 +1,4 @@
-﻿"""stage1/core/record_builder.py - V31all
+"""stage1/core/record_builder.py - V31all
 Assembles complete JSONL records in the v31 7-input -> 2-output schema.
 build_batch() uses GPU-accelerated language scalar computation for large ingests.
 """
@@ -16,6 +16,7 @@ from stage1.core.triangulation import (
     triangulate,
     build_mathematical_relationship,
 )
+from stage1.core.neural_l1_engine import NeuralL1State
 
 
 @dataclass
@@ -29,6 +30,7 @@ class RecordBuilder:
     system_id: str = "CASEBELIZE"
     codebase_hash: str = ""
     mission: str = ""
+    neural_l1: Optional[NeuralL1State] = None
 
     _m1: M1State = field(default_factory=M1State)
     _m2: M2State = field(default_factory=M2State)
@@ -68,7 +70,6 @@ class RecordBuilder:
         telemetry_stable: bool = True,
     ) -> dict:
         self._entry += 1
-        m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
         l2 = build_layer2(
             binary_hash=self.codebase_hash,
             mission=self.mission,
@@ -81,6 +82,21 @@ class RecordBuilder:
             is_logical=is_logical,
             telemetry_stable=telemetry_stable,
         )
+
+        if self.neural_l1 is not None and self.neural_l1.is_loaded:
+            progress = self._entry / max(self.total_entries, 1)
+            m1_val, m2_val, m3_val = self.neural_l1.step(
+                progress=progress,
+                language_scalar=l2["language_scalar"],
+                binary_scalar=l2["binary_scalar"],
+                stimulus=stimulus
+            )
+            m_vals = {"M1": m1_val, "M2": m2_val, "M3": m3_val}
+            # Also tick simulated objects to keep step/branch counts in sync
+            _ = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
+        else:
+            m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
+
         v, nfp_tri, lto_tri = triangulate(
             M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
             binary=l2["binary_scalar"], geometry=l2["geometry_scalar"],
@@ -153,8 +169,6 @@ class RecordBuilder:
             is_logical    = bool(row.get("is_logical", True))
             telemetry_stable = bool(row.get("telemetry_stable", True))
 
-            m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
-
             # Binary + geometry still CPU (fast hash/math)
             b = BinaryScalar(codebase_hash=self.codebase_hash, mission=self.mission,
                              purpose=language_text[:80], is_logical=is_logical)
@@ -165,6 +179,20 @@ class RecordBuilder:
             geometry_scalar = g.compute()
             # Use pre-computed GPU language scalar
             language_scalar = lang_scalar
+
+            if self.neural_l1 is not None and self.neural_l1.is_loaded:
+                progress = self._entry / max(self.total_entries, 1)
+                m1_val, m2_val, m3_val = self.neural_l1.step(
+                    progress=progress,
+                    language_scalar=language_scalar,
+                    binary_scalar=binary_scalar,
+                    stimulus=stimulus
+                )
+                m_vals = {"M1": m1_val, "M2": m2_val, "M3": m3_val}
+                # Tick the simulated objects too to keep track of branch count
+                _ = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
+            else:
+                m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
 
             v, _, _ = triangulate(
                 M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],

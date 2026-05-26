@@ -1,0 +1,11 @@
+[
+  {
+    "timestamp": "2026-05-26T06:29:37Z",
+    "source": "batch_import.jsonl",
+    "raw_record_count": 2,
+    "unique_record_count": 2,
+    "duplicates_skipped": 0,
+    "corpus_sha256_signature": "10187ce8826cd6d225b46e5c4c274c579df7f0541ca9df853612f99fb86bd4f7",
+    "elapsed_seconds": 0.0
+  }
+]

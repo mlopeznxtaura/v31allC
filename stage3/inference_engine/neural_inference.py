@@ -14,6 +14,7 @@ from stage1.core.layer2_scalars import build_layer2
 from stage1.core.triangulation import TriangulationState, triangulate, ACTION_VOCAB
 from stage2.dag_compiler.phase_gate import PhaseGate
 from stage2.training_engine.neural_model import V31Model
+from stage1.core.neural_l1_engine import NeuralL1State
 
 
 class V31NeuralInferenceEngine:
@@ -25,6 +26,7 @@ class V31NeuralInferenceEngine:
     def __init__(
         self,
         checkpoint_path: str = "models/v31_neural_model.pt",
+        l1_checkpoint_path: Optional[str] = None,
         system_id: str = "CASEBELIZE",
         sandbox: bool = True,
         codebase_hash: str = "v31all",
@@ -37,7 +39,10 @@ class V31NeuralInferenceEngine:
         self.mission = mission
         self.checkpoint_path = checkpoint_path
 
-        # State modules for tracking running observer parameters
+        # Genuine Layer-1 Neural State Estimator
+        self.neural_l1 = NeuralL1State(checkpoint_path=l1_checkpoint_path)
+
+        # Classical fallback state modules for tracking running observer parameters
         self._m1 = M1State()
         self._m2 = M2State()
         self._m3 = M3State(time_budget_seconds=time_budget)
@@ -45,7 +50,7 @@ class V31NeuralInferenceEngine:
         self._gate = PhaseGate()
         self._turn = 0
 
-        # Initialize PyTorch model
+        # Initialize PyTorch model (L2/Main primary network)
         self.model = V31Model()
         self.is_loaded = False
         
@@ -71,6 +76,15 @@ class V31NeuralInferenceEngine:
             self.is_loaded = False
             return False
 
+    def reset(self):
+        """Resets both the classical fallbacks and genuine neural L1 histories."""
+        self._turn = 0
+        self._m1 = M1State()
+        self._m2 = M2State()
+        self._m3 = M3State()
+        self.neural_l1.reset()
+        self._tri_state = TriangulationState()
+
     def infer(
         self,
         binary_text: str,
@@ -89,10 +103,7 @@ class V31NeuralInferenceEngine:
         self._turn += 1
         eidx = entry_index if entry_index is not None else self._turn
 
-        # 1. State Tracking - Layer 1 (M-scalars)
-        m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
-
-        # 2. State Tracking - Layer 2 (Scalars)
+        # 1. State Tracking - Layer 2 (Scalars)
         l2 = build_layer2(
             binary_hash=self.codebase_hash,
             mission=self.mission,
@@ -106,7 +117,30 @@ class V31NeuralInferenceEngine:
             telemetry_stable=telemetry_stable,
         )
 
-        # Compute classical triangulation for input
+        # 2. State Tracking - Layer 1 (M-scalars)
+        progress = eidx / max(total_entries, 1)
+        if self.neural_l1.is_loaded:
+            # Running with real Layer-1 model weights ("living within the architecture")
+            m1, m2, m3 = self.neural_l1.step(
+                progress=progress,
+                language_scalar=l2["language_scalar"],
+                binary_scalar=l2["binary_scalar"],
+                stimulus=stimulus
+            )
+            m_vals = {
+                "M1": m1,
+                "M2": m2,
+                "M3": m3,
+                "is_neural_l1": True,
+                "l1_checkpoint": Path(self.neural_l1.checkpoint_path).name
+            }
+        else:
+            # Fallback to simulated mathematical/rule-based state classes
+            m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
+            m_vals["is_neural_l1"] = False
+            m_vals["l1_checkpoint"] = "None (Simulated)"
+
+        # Compute triangulation for input
         v_classical = self._tri_state.compute(
             M1=m_vals["M1"],
             M2=m_vals["M2"],
@@ -116,7 +150,7 @@ class V31NeuralInferenceEngine:
             language=l2["language_scalar"],
         )
 
-        # 3. Vectorize inputs for PyTorch Model
+        # 3. Vectorize inputs for PyTorch Model (Main network)
         m1_t = torch.tensor([[m_vals["M1"]]], dtype=torch.float32)
         m2_t = torch.tensor([[m_vals["M2"]]], dtype=torch.float32)
         m3_t = torch.tensor([[m_vals["M3"]]], dtype=torch.float32)
@@ -167,5 +201,8 @@ class V31NeuralInferenceEngine:
             "geometry_scalar": round(l2["geometry_scalar"], 4),
             "language_scalar": round(l2["language_scalar"], 4),
             "neural_frame": neural_frame,  # Raw 224-dim continuous visual prediction!
-            "is_neural": True
+            "is_neural": True,
+            "is_neural_l1": m_vals["is_neural_l1"],
+            "l1_checkpoint": m_vals["l1_checkpoint"]
         }
+
