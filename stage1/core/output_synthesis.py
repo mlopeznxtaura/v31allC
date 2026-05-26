@@ -3,10 +3,49 @@
 import numpy as np
 
 class OutputSynthesizer:
-    """Rule-based output synthesis from 7 inputs + pixel generation"""
+    """Rule-based output synthesis from 7 inputs + pixel generation with semantic context integration"""
     
     @staticmethod
-    def synthesize_nfp(M1, M2, M3, binary, geometry, language, V):
+    def _extract_context_summary(language_text, binary_text, geometry_text):
+        """Helper to extract a clean semantic summary from inputs to drive dynamic output generation."""
+        summary = ""
+        # Clean language text
+        lang = str(language_text).strip()
+        if lang and lang.lower() not in ("default", "auto-ingested and computed", "awaiting.", "ready.", "still here."):
+            # If there's a question or statement, extract the main part (trim to 80 chars)
+            if len(lang) > 80:
+                summary += f"focuses on '{lang[:77]}...'"
+            else:
+                summary += f"focuses on '{lang}'"
+        else:
+            summary += "explores general system state"
+
+        # Check binary/geometry for additional details
+        bin_str = str(binary_text).strip()
+        if bin_str and bin_str.lower() != "default" and "phase gate" not in bin_str:
+            if "submodule" in bin_str.lower():
+                summary += " during submodule sync"
+            elif "git" in bin_str.lower():
+                summary += " during git operation"
+            else:
+                # Add a brief snippet of binary text
+                snippet = bin_str[:50].replace('\n', ' ')
+                summary += f" with signal '{snippet}...'"
+                
+        geo_str = str(geometry_text).strip()
+        if geo_str and geo_str.lower() != "default" and "entry " not in geo_str:
+            if "wsl" in geo_str.lower():
+                summary += " in WSL environment"
+            elif "vs code" in geo_str.lower() or "ide" in geo_str.lower():
+                summary += " in active IDE session"
+            else:
+                snippet = geo_str[:50].replace('\n', ' ')
+                summary += f" near '{snippet}...'"
+                
+        return summary
+
+    @staticmethod
+    def synthesize_nfp(M1, M2, M3, binary, geometry, language, V, binary_text="", geometry_text="", language_text=""):
         """Next Frame Prediction: what happens next"""
         if M1 > 1.5:
             m1_state = "unbounded exploration"
@@ -37,11 +76,19 @@ class OutputSynthesizer:
             action = "will reset"
         
         progress = int(V * 100)
-        nfp = f"Entry {int(M1*2)} {action} via {m1_state} under {m2_state} with {m3_state} at {progress}% progress."
+        
+        # Integrate semantic text summary
+        summary = OutputSynthesizer._extract_context_summary(language_text, binary_text, geometry_text)
+        
+        entry_idx = int(M1 * 2)
+        if entry_idx <= 0:
+            entry_idx = 1
+            
+        nfp = f"Entry {entry_idx} {action} ({summary}) via {m1_state} under {m2_state} with {m3_state} at {progress}% progress."
         return nfp
     
     @staticmethod
-    def synthesize_lto(M1, M2, M3, binary, geometry, language, V):
+    def synthesize_lto(M1, M2, M3, binary, geometry, language, V, binary_text="", geometry_text="", language_text=""):
         """Language Token Output: full sentence describing the semantic action"""
         
         m1_desc = "unbounded thinking" if M1 > 1.3 else "controlled reasoning"
@@ -62,7 +109,10 @@ class OutputSynthesizer:
         else:
             action_desc = "diverging and resetting"
         
-        lto = f"System performs {m1_desc} combined with {m2_desc} and {m3_desc} {context}, currently {action_desc}."
+        # Integrate semantic text summary
+        summary = OutputSynthesizer._extract_context_summary(language_text, binary_text, geometry_text)
+        
+        lto = f"System performs {m1_desc} combined with {m2_desc} and {m3_desc} {context}, currently {action_desc} while it {summary}."
         return lto
     
     @staticmethod
@@ -123,10 +173,10 @@ class OutputSynthesizer:
         return frame
     
     @staticmethod
-    def synthesize(M1, M2, M3, binary, geometry, language, V):
+    def synthesize(M1, M2, M3, binary, geometry, language, V, binary_text="", geometry_text="", language_text=""):
         """Synthesize outputs and generate pixel frame"""
-        nfp = OutputSynthesizer.synthesize_nfp(M1, M2, M3, binary, geometry, language, V)
-        lto = OutputSynthesizer.synthesize_lto(M1, M2, M3, binary, geometry, language, V)
+        nfp = OutputSynthesizer.synthesize_nfp(M1, M2, M3, binary, geometry, language, V, binary_text, geometry_text, language_text)
+        lto = OutputSynthesizer.synthesize_lto(M1, M2, M3, binary, geometry, language, V, binary_text, geometry_text, language_text)
         frame = OutputSynthesizer.generate_pixel_frame(M1, M2, M3, V, binary, geometry, language)
         
         return nfp, lto, frame

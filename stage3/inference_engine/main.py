@@ -49,7 +49,16 @@ class V31InferenceEngine:
         self._tri = TriangulationState()
         self._gate = PhaseGate()
         self._turn = 0
-        self._v_history: List[float] = []
+        self._v_history = []
+    def reset(self):
+        """Reset state across turns."""
+        self._m1 = M1State()
+        self._m2 = M2State()
+        self._m3 = M3State()
+        self._tri = TriangulationState()
+        self._gate = PhaseGate()
+        self._turn = 0
+        self._v_history = []
 
     def infer(
         self,

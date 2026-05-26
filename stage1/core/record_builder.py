@@ -68,6 +68,7 @@ class RecordBuilder:
         stimulus: float = 1.0,
         is_logical: bool = True,
         telemetry_stable: bool = True,
+        original_outputs: Optional[dict] = None,
     ) -> dict:
         self._entry += 1
         l2 = build_layer2(
@@ -97,6 +98,9 @@ class RecordBuilder:
         else:
             m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
 
+        scalar_binary = binary_text if binary_text else l2["binary_field"]
+        scalar_geometry = geometry_text if geometry_text else l2["geometry_field"]
+
         v, nfp_tri, lto_tri = triangulate(
             M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
             binary=l2["binary_scalar"], geometry=l2["geometry_scalar"],
@@ -105,16 +109,27 @@ class RecordBuilder:
         nfp, lto, pixel_frame = OutputSynthesizer.synthesize(
             M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
             binary=l2["binary_scalar"], geometry=l2["geometry_scalar"],
-            language=l2["language_scalar"], V=v
+            language=l2["language_scalar"], V=v,
+            binary_text=scalar_binary,
+            geometry_text=scalar_geometry,
+            language_text=language_text
         )
+        
+        # Override output tokens with original parsed tokens if available, UNLESS neural model is active
+        original_outputs_map = original_outputs or {}
+        if self.neural_l1 is not None and self.neural_l1.is_loaded:
+            nfp_val = nfp
+            lto_val = lto
+        else:
+            nfp_val = original_outputs_map.get("next_frame_prediction") or nfp
+            lto_val = original_outputs_map.get("language_token_output") or lto
+
         math_rel = build_mathematical_relationship(
             M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
             binary=l2["binary_scalar"], geometry=l2["geometry_scalar"],
             language=l2["language_scalar"],
             context_tags=f"entry={self._entry}, V={v:.4f}",
         )
-        scalar_binary = binary_text if binary_text else l2["binary_field"]
-        scalar_geometry = geometry_text if geometry_text else l2["geometry_field"]
         m1_desc, m2_desc, m3_desc = self._m_descriptions(m_vals)
         record = {
             "M1": m1_desc, "M2": m2_desc, "M3": m3_desc,
@@ -124,7 +139,7 @@ class RecordBuilder:
                 "language": language_text,
                 "mathematical_relationship": math_rel,
             },
-            "output_tokens": {"next_frame_prediction": nfp, "language_token_output": lto},
+            "output_tokens": {"next_frame_prediction": nfp_val, "language_token_output": lto_val},
         }
         record["_meta"] = {
             "entry": self._entry, "V": round(v, 6),
@@ -143,7 +158,8 @@ class RecordBuilder:
         """
         GPU-accelerated batch build for large ingests.
         Each row: {"binary_text": str, "geometry_text": str, "language_text": str,
-                   "stimulus": float, "is_logical": bool, "telemetry_stable": bool}
+                   "stimulus": float, "is_logical": bool, "telemetry_stable": bool,
+                   "original_outputs": dict}
         Language scalars are computed in one GPU tensor op, then per-record
         triangulation runs sequentially (stateful M1/M2/M3 must stay serial).
         """
@@ -202,8 +218,21 @@ class RecordBuilder:
             nfp, lto, pixel_frame = OutputSynthesizer.synthesize(
                 M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
                 binary=binary_scalar, geometry=geometry_scalar,
-                language=language_scalar, V=v
+                language=language_scalar, V=v,
+                binary_text=binary_text or b.to_field(),
+                geometry_text=geometry_text or g.to_field(),
+                language_text=language_text
             )
+            
+            # Override outputs with original parsed tokens if available, UNLESS neural model is active
+            original_outputs = row.get("original_outputs") or {}
+            if self.neural_l1 is not None and self.neural_l1.is_loaded:
+                nfp_val = nfp
+                lto_val = lto
+            else:
+                nfp_val = original_outputs.get("next_frame_prediction") or nfp
+                lto_val = original_outputs.get("language_token_output") or lto
+
             math_rel = build_mathematical_relationship(
                 M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
                 binary=binary_scalar, geometry=geometry_scalar,
@@ -219,7 +248,7 @@ class RecordBuilder:
                     "language": language_text,
                     "mathematical_relationship": math_rel,
                 },
-                "output_tokens": {"next_frame_prediction": nfp, "language_token_output": lto},
+                "output_tokens": {"next_frame_prediction": nfp_val, "language_token_output": lto_val},
                 "_meta": {
                     "entry": self._entry, "V": round(v, 6),
                     "M1_raw": round(m_vals["M1"], 6), "M2_raw": round(m_vals["M2"], 6),
