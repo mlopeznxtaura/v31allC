@@ -1,0 +1,23 @@
+[layer2] GPU: NVIDIA GeForce RTX 5090
+[NeuralL1] Successfully loaded Layer-1 weights from layer1_combined.pt
+[layer2] GPU: NVIDIA GeForce RTX 5090
+[NeuralL1] Successfully loaded Layer-1 weights from layer1_combined.pt
+NiceGUI ready to go on http://localhost:8080, http://10.255.255.254:8080, http://172.17.0.1:8080, http://172.18.0.1:8080, and http://172.30.83.76:8080
+Traceback (most recent call last):
+  File "/mnt/d/NextAura/v31all_1/v31allC/gui/main.py", line 38, in <module>
+    ui.run(title="NextAura v31 GUI", reload=True)
+  File "/home/archi/miniforge3/envs/nextaura/lib/python3.11/site-packages/nicegui/ui_run.py", line 305, in run
+    ChangeReload(config, target=Server.instance.run, sockets=[sock]).run()
+  File "/home/archi/miniforge3/envs/nextaura/lib/python3.11/site-packages/uvicorn/supervisors/basereload.py", line 52, in run
+    for changes in self:
+  File "/home/archi/miniforge3/envs/nextaura/lib/python3.11/site-packages/uvicorn/supervisors/basereload.py", line 71, in __next__
+    return self.should_restart()
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/archi/miniforge3/envs/nextaura/lib/python3.11/site-packages/uvicorn/supervisors/watchfilesreload.py", line 82, in should_restart
+    changes = next(self.watcher)
+              ^^^^^^^^^^^^^^^^^^
+  File "/home/archi/miniforge3/envs/nextaura/lib/python3.11/site-packages/watchfiles/main.py", line 131, in watch
+    raw_changes = watcher.watch(debounce, step, rust_timeout, stop_event)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_rust_notify.WatchfilesRustInternalError: error in underlying watcher: IO error for operation on /mnt/d/Users/archi/Local Settings/Temporary Internet Files/Low/Content.IE5: Input/output error (os error 5) about ["/mnt/d/Users/archi/Local Settings/Temporary Internet Files/Low/Content.IE5"]
+gio: http://127.0.0.1:8080/: Operation not supported
