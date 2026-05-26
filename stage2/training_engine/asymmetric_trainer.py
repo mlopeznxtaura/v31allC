@@ -166,16 +166,17 @@ class AsymmetricTrainer:
             batch = frames[i : i + batch_size]
             
             # Collate batch tensors
-            m1_b = torch.tensor([f["m1"] for f in batch], dtype=torch.float32)
-            m2_b = torch.tensor([f["m2"] for f in batch], dtype=torch.float32)
-            m3_b = torch.tensor([f["m3"] for f in batch], dtype=torch.float32)
-            geo_b = torch.stack([f["geo"] for f in batch])
-            bin_b = torch.stack([f["bin"] for f in batch])
-            lng_b = torch.stack([f["lng"] for f in batch])
-            tri_b = torch.stack([f["tri"] for f in batch])
+            device = next(self.model.parameters()).device
+            m1_b = torch.tensor([f["m1"] for f in batch], dtype=torch.float32).to(device)
+            m2_b = torch.tensor([f["m2"] for f in batch], dtype=torch.float32).to(device)
+            m3_b = torch.tensor([f["m3"] for f in batch], dtype=torch.float32).to(device)
+            geo_b = torch.stack([f["geo"] for f in batch]).to(device)
+            bin_b = torch.stack([f["bin"] for f in batch]).to(device)
+            lng_b = torch.stack([f["lng"] for f in batch]).to(device)
+            tri_b = torch.stack([f["tri"] for f in batch]).to(device)
             
-            target_frame_b = torch.stack([f["next_frame_target"] for f in batch])
-            target_token_b = torch.tensor([f["next_token_id"] for f in batch], dtype=torch.long)
+            target_frame_b = torch.stack([f["next_frame_target"] for f in batch]).to(device)
+            target_token_b = torch.tensor([f["next_token_id"] for f in batch], dtype=torch.long).to(device)
 
             self.optimizer.zero_grad()
             
@@ -189,7 +190,11 @@ class AsymmetricTrainer:
             # Combine losses: weighted average
             loss = loss_mse + 0.1 * loss_ce
             
+            if torch.isnan(loss):
+                self.optimizer.zero_grad()
+                continue
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
             
             self.step_count += 1
