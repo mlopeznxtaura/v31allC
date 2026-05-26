@@ -1,35 +1,15 @@
-"""stage1/core/record_builder.py — V31all
-Assembles complete JSONL records in the v31 7-input → 2-output schema.
-
-Schema:
-{
-  "M1": <str description of unbounded thinker state>,
-  "M2": <str description of efficiency zealot state>,
-  "M3": <str description of meta-observer state>,
-  "scalar_inputs": {
-    "binary":  <str>,
-    "geometry": <str>,
-    "language": <str>,
-    "mathematical_relationship": <str>   ← Triangulation receives all 6+self
-  },
-  "output_tokens": {
-    "next_frame_prediction": <str>,
-    "language_token_output": <str>
-  }
-}
-
-The mathematical_relationship field encodes Triangulation's full computation
-across all 7 inputs (including its own prior state). This is the RL value
-function field in human-readable form.
+﻿"""stage1/core/record_builder.py - V31all
+Assembles complete JSONL records in the v31 7-input -> 2-output schema.
+build_batch() uses GPU-accelerated language scalar computation for large ingests.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 import json
 import time
 
 from stage1.core.m_scalars import M1State, M2State, M3State, compute_m_scalars
-from stage1.core.layer2_scalars import build_layer2
+from stage1.core.layer2_scalars import build_layer2, batch_language_scalars, LanguageScalar, BinaryScalar, GeometryScalar
 from stage1.core.output_synthesis import OutputSynthesizer
 from stage1.core.triangulation import (
     TriangulationState,
@@ -41,9 +21,8 @@ from stage1.core.triangulation import (
 @dataclass
 class RecordBuilder:
     """
-    Stateful builder. Maintains M1/M2/M3/Triangulation across entries
-    so each record inherits momentum from prior records (self-referential
-    invariant preservation per spec).
+    Stateful builder. Maintains M1/M2/M3/Triangulation across entries.
+    Use build() for single records, build_batch() for large ingests (GPU path).
     """
     total_entries: int = 50
     sandbox: bool = True
@@ -58,7 +37,6 @@ class RecordBuilder:
     _entry: int = 0
 
     def _m_descriptions(self, m_vals: dict) -> tuple:
-        """Generate M1/M2/M3 description strings from current state."""
         m1_desc = (
             f"Unbounded thinker; branches={self._m1.branch_count}; "
             f"depth={self._m1.exploration_depth:.2f}; "
@@ -89,15 +67,8 @@ class RecordBuilder:
         is_logical: bool = True,
         telemetry_stable: bool = True,
     ) -> dict:
-        """
-        Build one complete record. Advances internal state.
-        """
         self._entry += 1
-
-        # Layer-1: compute M scalars
         m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
-
-        # Layer-2: compute contextual scalars
         l2 = build_layer2(
             binary_hash=self.codebase_hash,
             mission=self.mission,
@@ -110,68 +81,38 @@ class RecordBuilder:
             is_logical=is_logical,
             telemetry_stable=telemetry_stable,
         )
-
-        # Triangulation: receives all 7 (6 external + self-momentum)
         v, nfp_tri, lto_tri = triangulate(
-            M1=m_vals["M1"],
-            M2=m_vals["M2"],
-            M3=m_vals["M3"],
-            binary=l2["binary_scalar"],
-            geometry=l2["geometry_scalar"],
-            language=l2["language_scalar"],
-            state=self._tri,
+            M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
+            binary=l2["binary_scalar"], geometry=l2["geometry_scalar"],
+            language=l2["language_scalar"], state=self._tri,
         )
-        
-        # Synthesize outputs from 7 inputs (includes pixel frame)
         nfp, lto, pixel_frame = OutputSynthesizer.synthesize(
-            M1=m_vals["M1"],
-            M2=m_vals["M2"],
-            M3=m_vals["M3"],
-            binary=l2["binary_scalar"],
-            geometry=l2["geometry_scalar"],
-            language=l2["language_scalar"],
-            V=v
+            M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
+            binary=l2["binary_scalar"], geometry=l2["geometry_scalar"],
+            language=l2["language_scalar"], V=v
         )
-
         math_rel = build_mathematical_relationship(
-            M1=m_vals["M1"],
-            M2=m_vals["M2"],
-            M3=m_vals["M3"],
-            binary=l2["binary_scalar"],
-            geometry=l2["geometry_scalar"],
+            M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
+            binary=l2["binary_scalar"], geometry=l2["geometry_scalar"],
             language=l2["language_scalar"],
             context_tags=f"entry={self._entry}, V={v:.4f}",
         )
-
-        # Override with human-readable text fields from caller
         scalar_binary = binary_text if binary_text else l2["binary_field"]
         scalar_geometry = geometry_text if geometry_text else l2["geometry_field"]
-        scalar_language = language_text
-
         m1_desc, m2_desc, m3_desc = self._m_descriptions(m_vals)
-
         record = {
-            "M1": m1_desc,
-            "M2": m2_desc,
-            "M3": m3_desc,
+            "M1": m1_desc, "M2": m2_desc, "M3": m3_desc,
             "scalar_inputs": {
                 "binary": scalar_binary,
                 "geometry": scalar_geometry,
-                "language": scalar_language,
+                "language": language_text,
                 "mathematical_relationship": math_rel,
             },
-            "output_tokens": {
-                "next_frame_prediction": nfp,
-                "language_token_output": lto,
-            },
+            "output_tokens": {"next_frame_prediction": nfp, "language_token_output": lto},
         }
-
-        # attach raw scalar values as metadata (not in spec output but useful)
         record["_meta"] = {
-            "entry": self._entry,
-            "V": round(v, 6),
-            "M1_raw": round(m_vals["M1"], 6),
-            "M2_raw": round(m_vals["M2"], 6),
+            "entry": self._entry, "V": round(v, 6),
+            "M1_raw": round(m_vals["M1"], 6), "M2_raw": round(m_vals["M2"], 6),
             "M3_raw": round(m_vals["M3"], 6),
             "binary_scalar": round(l2["binary_scalar"], 6),
             "geometry_scalar": round(l2["geometry_scalar"], 6),
@@ -180,11 +121,95 @@ class RecordBuilder:
             "pixel_frame_shape": pixel_frame.shape,
             "pixel_frame_base64": __import__('base64').b64encode(pixel_frame.tobytes()).decode(),
         }
-
         return record
 
+    def build_batch(self, rows: List[dict]) -> List[dict]:
+        """
+        GPU-accelerated batch build for large ingests.
+        Each row: {"binary_text": str, "geometry_text": str, "language_text": str,
+                   "stimulus": float, "is_logical": bool, "telemetry_stable": bool}
+        Language scalars are computed in one GPU tensor op, then per-record
+        triangulation runs sequentially (stateful M1/M2/M3 must stay serial).
+        """
+        if not rows:
+            return []
+
+        t0 = time.time()
+        n = len(rows)
+
+        # 1. GPU batch: language scalars for all rows at once
+        texts = [r.get("language_text", "") for r in rows]
+        lang_scalars = batch_language_scalars(texts)
+        print(f"[RecordBuilder.build_batch] {n} records, lang scalars GPU: {time.time()-t0:.3f}s")
+
+        # 2. Serial loop for stateful M/triangulation (cannot parallelise)
+        results = []
+        for i, (row, lang_scalar) in enumerate(zip(rows, lang_scalars)):
+            self._entry += 1
+            binary_text   = row.get("binary_text", "")
+            geometry_text = row.get("geometry_text", "")
+            language_text = row.get("language_text", "")
+            stimulus      = float(row.get("stimulus", 1.0))
+            is_logical    = bool(row.get("is_logical", True))
+            telemetry_stable = bool(row.get("telemetry_stable", True))
+
+            m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
+
+            # Binary + geometry still CPU (fast hash/math)
+            b = BinaryScalar(codebase_hash=self.codebase_hash, mission=self.mission,
+                             purpose=language_text[:80], is_logical=is_logical)
+            g = GeometryScalar(entry_index=self._entry, total_entries=max(self.total_entries, n),
+                               sandbox=self.sandbox, system_id=self.system_id,
+                               telemetry_stable=telemetry_stable)
+            binary_scalar   = b.compute()
+            geometry_scalar = g.compute()
+            # Use pre-computed GPU language scalar
+            language_scalar = lang_scalar
+
+            v, _, _ = triangulate(
+                M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
+                binary=binary_scalar, geometry=geometry_scalar,
+                language=language_scalar, state=self._tri,
+            )
+            nfp, lto, pixel_frame = OutputSynthesizer.synthesize(
+                M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
+                binary=binary_scalar, geometry=geometry_scalar,
+                language=language_scalar, V=v
+            )
+            math_rel = build_mathematical_relationship(
+                M1=m_vals["M1"], M2=m_vals["M2"], M3=m_vals["M3"],
+                binary=binary_scalar, geometry=geometry_scalar,
+                language=language_scalar,
+                context_tags=f"entry={self._entry}, V={v:.4f}",
+            )
+            m1_desc, m2_desc, m3_desc = self._m_descriptions(m_vals)
+            record = {
+                "M1": m1_desc, "M2": m2_desc, "M3": m3_desc,
+                "scalar_inputs": {
+                    "binary": binary_text or b.to_field(),
+                    "geometry": geometry_text or g.to_field(),
+                    "language": language_text,
+                    "mathematical_relationship": math_rel,
+                },
+                "output_tokens": {"next_frame_prediction": nfp, "language_token_output": lto},
+                "_meta": {
+                    "entry": self._entry, "V": round(v, 6),
+                    "M1_raw": round(m_vals["M1"], 6), "M2_raw": round(m_vals["M2"], 6),
+                    "M3_raw": round(m_vals["M3"], 6),
+                    "binary_scalar": round(binary_scalar, 6),
+                    "geometry_scalar": round(geometry_scalar, 6),
+                    "language_scalar": round(language_scalar, 6),
+                    "timestamp": round(time.time(), 3),
+                    "pixel_frame_shape": pixel_frame.shape,
+                    "pixel_frame_base64": __import__('base64').b64encode(pixel_frame.tobytes()).decode(),
+                }
+            }
+            results.append(record)
+
+        print(f"[RecordBuilder.build_batch] total: {time.time()-t0:.3f}s for {n} records")
+        return results
+
     def build_jsonl_line(self, **kwargs) -> str:
-        """Return single JSONL-serialized record (no _meta in output)."""
         record = self.build(**kwargs)
         output = {k: v for k, v in record.items() if k != "_meta"}
         return json.dumps(output)

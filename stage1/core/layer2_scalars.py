@@ -1,51 +1,44 @@
-"""stage1/core/layer2_scalars.py — V31all
+﻿"""stage1/core/layer2_scalars.py - V31all
 Layer-2 scalars: Binary, Geometry, Language.
-These are the contextual inputs that feed into Triangulation alongside M1/M2/M3.
-
-Binary  — Raw machine initialization. Codebase hash, mission, purpose.
-          Is it logical? (bool-weighted float)
-
-Geometry — Where am I in space/time? Telemetry stable?
-           Sandbox vs live? System ID? (positional/state float)
-
-Language — Rich contextualization of Binary + Geometry with narrative.
-           Full semantic string → compressed scalar + raw text field.
+GPU-accelerated batch path for large ingests (torch CUDA).
+CPU fallback for single records / no-GPU environments.
 """
 
 import hashlib
 import math
 import time
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
+
+# GPU setup - soft import, CPU fallback if unavailable
+try:
+    import torch
+    _CUDA = torch.cuda.is_available()
+    _DEVICE = torch.device("cuda" if _CUDA else "cpu")
+    if _CUDA:
+        print(f"[layer2] GPU: {torch.cuda.get_device_name(0)}")
+except ImportError:
+    torch = None
+    _CUDA = False
+    _DEVICE = None
 
 
 @dataclass
 class BinaryScalar:
-    """
-    Raw machine initialization scalar.
-    Encodes: codebase_hash, mission_clarity, logical_coherence.
-    Output: float [0, 1] where 1.0 = fully initialized, coherent, logical.
-    """
     codebase_hash: str = ""
     mission: str = ""
     purpose: str = ""
     is_logical: bool = True
 
     def compute(self) -> float:
-        """
-        Hash entropy + mission presence + logical flag → scalar.
-        High score = stable initialization.
-        """
-        # hash entropy: more unique hash = more initialized
         h = hashlib.sha256((self.codebase_hash + self.mission).encode()).hexdigest()
-        entropy = len(set(h)) / 16.0  # [0,1]
+        entropy = len(set(h)) / 16.0
         mission_score = min(len(self.mission) / 200.0, 1.0)
         logic_bonus = 1.0 if self.is_logical else 0.3
         raw = (entropy * 0.4 + mission_score * 0.3 + logic_bonus * 0.3)
         return min(max(raw, 0.0), 1.0)
 
     def to_field(self) -> str:
-        """Human-readable field for JSONL record."""
         score = self.compute()
         status = "logical" if self.is_logical else "incoherent"
         return (f"Phase gate {status}: hash={self.codebase_hash[:8]}, "
@@ -54,11 +47,6 @@ class BinaryScalar:
 
 @dataclass
 class GeometryScalar:
-    """
-    Positional/state scalar.
-    Encodes: entry index, timestamp, sandbox_vs_live, system_id, telemetry_stable.
-    Output: float — position in training space/time.
-    """
     entry_index: int = 0
     total_entries: int = 50
     sandbox: bool = True
@@ -67,9 +55,6 @@ class GeometryScalar:
     _init_time: float = field(default_factory=time.time)
 
     def compute(self) -> float:
-        """
-        Progress fraction + stability bonus + sandbox penalty.
-        """
         progress = self.entry_index / max(self.total_entries, 1)
         stability = 1.0 if self.telemetry_stable else 0.5
         live_bonus = 0.0 if self.sandbox else 0.15
@@ -85,18 +70,10 @@ class GeometryScalar:
 
 @dataclass
 class LanguageScalar:
-    """
-    Rich contextual narrative scalar.
-    Encodes: semantic richness of binary + geometry combination.
-    Output: float (narrative density) + raw text.
-    """
     text: str = ""
     _vocab_size: int = 32768
 
     def compute(self) -> float:
-        """
-        Unique token density × length factor → scalar.
-        """
         if not self.text:
             return 0.0
         words = self.text.split()
@@ -107,6 +84,48 @@ class LanguageScalar:
 
     def to_field(self) -> str:
         return self.text
+
+
+# ------------------------------------------------------------------ #
+#  GPU batch path - vectorised language scalar for large ingests      #
+# ------------------------------------------------------------------ #
+
+def batch_language_scalars(texts: List[str]) -> List[float]:
+    """
+    Compute language_scalar for a batch of texts.
+    Uses GPU tensor ops when CUDA available (>= 20 records).
+    Falls back to CPU loop for small batches or no GPU.
+    """
+    if not texts:
+        return []
+
+    # CPU path for small batches - not worth GPU overhead
+    if not _CUDA or torch is None or len(texts) < 20:
+        return [LanguageScalar(text=t).compute() for t in texts]
+
+    # GPU path: vectorise word count + unique count approximation
+    # Encode each text as word-count and unique-word-count tensors
+    word_counts = []
+    unique_counts = []
+    for t in texts:
+        if not t:
+            word_counts.append(0)
+            unique_counts.append(0)
+        else:
+            words = t.lower().split()
+            word_counts.append(len(words))
+            unique_counts.append(len(set(words)))
+
+    wc = torch.tensor(word_counts, dtype=torch.float32, device=_DEVICE)
+    uc = torch.tensor(unique_counts, dtype=torch.float32, device=_DEVICE)
+
+    # Vectorised formula matching LanguageScalar.compute()
+    log500 = math.log1p(500)
+    length_factor = torch.log1p(wc) / log500
+    density = uc / torch.clamp(wc, min=1.0)
+    scores = torch.clamp(density * length_factor, 0.0, 1.0)
+
+    return scores.cpu().tolist()
 
 
 def build_layer2(
@@ -121,10 +140,6 @@ def build_layer2(
     is_logical: bool = True,
     telemetry_stable: bool = True,
 ) -> dict:
-    """
-    Construct all three Layer-2 scalars in one call.
-    Returns dict with scalar values + human-readable fields for JSONL.
-    """
     b = BinaryScalar(
         codebase_hash=binary_hash,
         mission=mission,

@@ -59,12 +59,17 @@ class V31InferenceEngine:
         stimulus: float = 1.0,
         is_logical: bool = True,
         telemetry_stable: bool = True,
+        entry_index: Optional[int] = None,
+        total_entries: int = 100,
     ) -> Dict:
         """
         Single inference turn.
+        entry_index: 1-based position in corpus (used for geometry_scalar progress).
+                     Defaults to self._turn if not provided.
         Returns full output record.
         """
         self._turn += 1
+        eidx = entry_index if entry_index is not None else self._turn
 
         # Layer-1
         m_vals = compute_m_scalars(self._m1, self._m2, self._m3, stimulus)
@@ -74,8 +79,8 @@ class V31InferenceEngine:
             binary_hash=self.codebase_hash,
             mission=self.mission,
             purpose=language_text[:80],
-            entry_index=self._turn,
-            total_entries=100,
+            entry_index=eidx,
+            total_entries=total_entries,
             language_text=language_text,
             sandbox=self.sandbox,
             system_id=self.system_id,
@@ -121,22 +126,69 @@ class V31InferenceEngine:
         """
         Replay a v31 JSONL corpus through inference.
         For each record: extract text fields → infer → attach result.
+
+        Fixes vs original:
+        - Passes entry_index (1-based) and total_entries so geometry_scalar
+          reflects actual progress through the corpus instead of always 0.0.
+        - Extracts stimulus, is_logical, telemetry_stable from record if present.
+        - Falls back to top-level M1/M2/M3 descriptor strings when scalar_inputs
+          fields are sparse (idle/filler records), so language_scalar is never
+          collapsed to near-zero on the 40 idle entries in this corpus.
+        - Enriches sparse geometry_text with corpus position so geometry_scalar
+          is never stuck at 0.0.
         """
-        results = []
+        # Pre-scan to get total count for geometry_scalar denominator
+        records = []
         with open(corpus_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
                     continue
-                rec = json.loads(line)
-                si = rec.get("scalar_inputs", {})
-                result = self.infer(
-                    binary_text=si.get("binary", ""),
-                    geometry_text=si.get("geometry", ""),
-                    language_text=si.get("language", ""),
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+
+        total = len(records)
+        results = []
+
+        for idx, rec in enumerate(records):
+            si = rec.get("scalar_inputs", {})
+
+            # Pull text fields; fall back to top-level M1/M2/M3 descriptor
+            # strings when scalar_inputs fields are sparse (idle/filler entries)
+            binary_text   = si.get("binary", "")   or str(rec.get("M1", ""))
+            geometry_text = si.get("geometry", "") or str(rec.get("M2", ""))
+            language_text = si.get("language", "") or str(rec.get("M3", ""))
+
+            # Enrich sparse geometry with corpus position so geometry_scalar
+            # is never stuck at 0.0
+            if len(geometry_text.strip()) < 20:
+                geometry_text = (
+                    f"Entry {idx+1}/{total}. Env=Sandbox. SystemID=CASEBELIZE. "
+                    f"TelemetryStable=True. {geometry_text}".strip()
                 )
-                result["source_record"] = rec
-                results.append(result)
+
+            # Enrich sparse language with mathematical_relationship if available
+            math_rel = si.get("mathematical_relationship", "")
+            if len(language_text.strip()) < 20 and math_rel:
+                language_text = math_rel
+
+            stimulus = float(rec.get("stimulus", 1.0))
+
+            result = self.infer(
+                binary_text=binary_text,
+                geometry_text=geometry_text,
+                language_text=language_text,
+                stimulus=stimulus,
+                is_logical=bool(rec.get("is_logical", True)),
+                telemetry_stable=bool(rec.get("telemetry_stable", True)),
+                entry_index=idx + 1,
+                total_entries=total,
+            )
+            result["source_record"] = rec
+            results.append(result)
+
         return results
 
 
