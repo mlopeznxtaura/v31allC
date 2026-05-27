@@ -378,3 +378,34 @@ class MasterCorpusManager:
             }
         except Exception as e:
             return {"error": f"Failed saving regenerated corpus: {e}"}
+
+    @staticmethod
+    def add_clean_records(records: List[Dict[str, Any]]) -> int:
+        """
+        Appends already compliance-processed clean records to the master corpus.
+        Deduplicates against existing records in the master corpus.
+        Returns the number of records actually added.
+        """
+        if not records:
+            return 0
+        existing_hashes = MasterCorpusManager.get_existing_hashes()
+        added_count = 0
+        try:
+            MASTER_CORPUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with MASTER_CORPUS_PATH.open("a", encoding="utf-8") as f:
+                for rec in records:
+                    rec_hash = rec.get("_meta", {}).get("provenance", {}).get("sha256")
+                    if not rec_hash:
+                        from stage1.core.soc_compliance import calculate_record_hash
+                        rec_hash = calculate_record_hash(rec.get("scalar_inputs", {}))
+                    if rec_hash in existing_hashes:
+                        continue
+                    existing_hashes.add(rec_hash)
+                    f.write(json.dumps(rec) + "\n")
+                    added_count += 1
+            print(f"[MasterCorpus] Appended {added_count} records to master_corpus.jsonl")
+            return added_count
+        except Exception as e:
+            print(f"[MasterCorpus] Failed appending to master_corpus.jsonl: {e}")
+            return 0
+

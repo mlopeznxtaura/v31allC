@@ -21,3 +21,5 @@ Traceback (most recent call last):
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _rust_notify.WatchfilesRustInternalError: error in underlying watcher: IO error for operation on /mnt/d/Users/archi/Local Settings/Temporary Internet Files/Low/Content.IE5: Input/output error (os error 5) about ["/mnt/d/Users/archi/Local Settings/Temporary Internet Files/Low/Content.IE5"]
 gio: http://127.0.0.1:8080/: Operation not supported
+/home/archi/miniforge3/envs/nextaura/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 5 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

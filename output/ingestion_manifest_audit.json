@@ -43,5 +43,14 @@
     "duplicates_skipped": 0,
     "corpus_sha256_signature": "e4e0bac58c0fabf8b841dcb0840ad710961cbc835402ad28fb9fbc4ea1d27fc1",
     "elapsed_seconds": 0.0004
+  },
+  {
+    "timestamp": "2026-05-26T14:07:02Z",
+    "source": "one_shot_auto_ingest",
+    "raw_record_count": 258,
+    "unique_record_count": 257,
+    "duplicates_skipped": 1,
+    "corpus_sha256_signature": "f9aedfd0841e348d91f83a35d17ab5386332b0e4666115a0a1212b7ccd380918",
+    "elapsed_seconds": 0.0015
   }
 ]
