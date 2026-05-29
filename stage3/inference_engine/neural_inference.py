@@ -66,7 +66,7 @@ class V31NeuralInferenceEngine:
             self.is_loaded = False
             return False
         try:
-            checkpoint = torch.load(str(path))
+            checkpoint = torch.load(str(path), weights_only=True)
             self.model.load_state_dict(checkpoint["model_state_dict"])
             self.model.eval()
             self.checkpoint_path = checkpoint_path

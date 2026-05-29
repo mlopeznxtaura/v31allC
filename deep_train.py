@@ -1,7 +1,7 @@
-"""deep_train.py — NextAura v31allC deep training cycle
+﻿"""deep_train.py â€” NextAura v31allC deep training cycle
 Trains V31Model v2 (31.5M params) from scratch on full master_corpus.jsonl.
-Schedule: linear warmup 1 epoch → cosine decay over remaining epochs.
-Runs CYCLES passes — each cycle re-reads the (growing) master corpus.
+Schedule: linear warmup 1 epoch â†’ cosine decay over remaining epochs.
+Runs CYCLES passes â€” each cycle re-reads the (growing) master corpus.
 After each cycle: register checkpoint in state_registry + print full metrics.
 """
 
@@ -24,7 +24,7 @@ MASTER     = ROOT / "output" / "master_corpus.jsonl"
 MODELS_DIR = ROOT / "models"
 CKPT_ACTIVE= MODELS_DIR / "v31_neural_model.pt"
 
-# ── Hyperparams ───────────────────────────────────────────────────────────────
+# â”€â”€ Hyperparams â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CYCLES     = 5      # full corpus passes (each one re-reads growing corpus)
 EPOCHS     = 15     # gradient epochs per cycle
 BATCH      = 32
@@ -125,7 +125,7 @@ def main():
     # Load active checkpoint if exists (continue learning)
     if CKPT_ACTIVE.exists():
         try:
-            ckpt = torch.load(str(CKPT_ACTIVE), map_location=device)
+            ckpt = torch.load(str(CKPT_ACTIVE), map_location=device, weights_only=True)
             # Handle both raw state_dict and wrapped checkpoint
             sd = ckpt.get("model_state_dict", ckpt)
             missing, unexpected = model.load_state_dict(sd, strict=False)
@@ -140,11 +140,11 @@ def main():
     print("=" * 72)
 
     for cycle in range(1, CYCLES + 1):
-        print(f"\n{'─'*72}")
-        print(f"  CYCLE {cycle}/{CYCLES}  — loading frames …")
+        print(f"\n{'â”€'*72}")
+        print(f"  CYCLE {cycle}/{CYCLES}  â€” loading frames â€¦")
         frames = load_frames(MASTER)
         if not frames:
-            print("  No frames — corpus empty. Abort.")
+            print("  No frames â€” corpus empty. Abort.")
             return
         print(f"  Frames: {len(frames):,}  |  Epochs: {EPOCHS}  |  Batches/epoch: {len(frames)//BATCH}")
 
@@ -166,7 +166,7 @@ def main():
             if loss < best_loss:
                 best_loss = loss
                 torch.save({"model_state_dict": model.state_dict()}, str(best_ckpt))
-                marker = " ★"
+                marker = " â˜…"
 
             print(
                 f"  C{cycle} E{epoch:02d}/{EPOCHS}  "
@@ -184,10 +184,10 @@ def main():
         metrics = {"loss": round(best_loss, 6), "mse": mse, "ce": ce, "records": len(frames), "cycle": cycle}
         rel_ckpt = str(best_ckpt.relative_to(ROOT))
         AuraCycleManager.register_state(sh, str(MASTER), ch, EPOCHS*cycle, BATCH, LR, metrics, rel_ckpt)
-        print(f"  ✓ Cycle {cycle} done  best_loss={best_loss:.5f}  registered {sh[:16]}")
+        print(f"  âœ“ Cycle {cycle} done  best_loss={best_loss:.5f}  registered {sh[:16]}")
 
     print("\n" + "=" * 72)
-    print("DEEP TRAINING COMPLETE  →  models/v31_neural_model.pt updated")
+    print("DEEP TRAINING COMPLETE  â†’  models/v31_neural_model.pt updated")
     print("=" * 72)
 
 

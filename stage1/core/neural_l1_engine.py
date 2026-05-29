@@ -200,7 +200,7 @@ class NeuralL1State:
             return False
 
         try:
-            state_dict = torch.load(str(path), map_location="cpu")
+            state_dict = torch.load(str(path), map_location="cpu", weights_only=True)
             # Extract l1 namespace if loading from an L2 model checkpoint (l2_baby_grounded_v3.pt)
             l1_state_dict = {}
             for k, v in state_dict.items():

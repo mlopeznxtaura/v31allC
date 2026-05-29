@@ -233,7 +233,7 @@ class AsymmetricTrainer:
         if not path.exists():
             return False
         try:
-            checkpoint = torch.load(str(path))
+            checkpoint = torch.load(str(path), weights_only=True)
             self.model.load_state_dict(checkpoint["model_state_dict"])
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             self.step_count = checkpoint.get("step", 0)

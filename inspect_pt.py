@@ -13,7 +13,12 @@ def inspect_file(filepath):
             print(f"File {filepath} does not exist (tried {path} and {wsl_path}).")
             return
     try:
-        data = torch.load(str(path), map_location="cpu")
+        # Try safe load first; fall back to full unpickling for legacy/custom checkpoints
+        try:
+            data = torch.load(str(path), map_location="cpu", weights_only=True)
+        except Exception:
+            data = torch.load(str(path), map_location="cpu")
+            print(f"  (Note: loaded with weights_only=False — may contain custom objects)")
         print(f"\n--- Inspecting {path.name} ---")
         print(f"Type: {type(data)}")
         if isinstance(data, dict):
