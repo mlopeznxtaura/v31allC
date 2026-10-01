@@ -1,11 +1,11 @@
-"""stage3/inference_engine/main.py — V31all
+﻿"""stage3/inference_engine/main.py â€” V31all
 Inference engine: loads a v31 corpus, runs the 7-input triangulation
 pipeline over a prompt, and returns next_frame_prediction + language_token_output.
 
 Replaces: stage3/inference_engine/main.py (v26) which used domain_classifier
 and separate semantic/kinematic encoders.
 
-V31 inference is stateful — M1/M2/M3/Triangulation maintain state across
+V31 inference is stateful â€” M1/M2/M3/Triangulation maintain state across
 turns (sliding window over prior V values for invariant preservation).
 """
 
@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from stage1.core.m_scalars import M1State, M2State, M3State, compute_m_scalars
 from stage1.core.layer2_scalars import build_layer2
 from stage1.core.triangulation import TriangulationState, triangulate
+from stage1.core.triangulation import IF7State, orthogonal_reparameterize
 from stage2.training_engine.triangulation_loss import total_triangulation_loss
 from stage2.dag_compiler.phase_gate import PhaseGate
 
@@ -48,6 +49,7 @@ class V31InferenceEngine:
         self._m3 = M3State(time_budget_seconds=time_budget)
         self._tri = TriangulationState()
         self._gate = PhaseGate()
+        self._if7 = IF7State()
         self._turn = 0
         self._v_history = []
     def reset(self):
@@ -57,6 +59,7 @@ class V31InferenceEngine:
         self._m3 = M3State()
         self._tri = TriangulationState()
         self._gate = PhaseGate()
+        self._if7 = IF7State()
         self._turn = 0
         self._v_history = []
 
@@ -97,7 +100,7 @@ class V31InferenceEngine:
             telemetry_stable=telemetry_stable,
         )
 
-        # Triangulation (7 → 2)
+        # Triangulation (7 â†’ 2)
         v, nfp, lto = triangulate(
             M1=m_vals["M1"],
             M2=m_vals["M2"],
@@ -117,6 +120,12 @@ class V31InferenceEngine:
             M3=m_vals["M3"],
         )
 
+        # IF7: relational arbitration over scalar deltas
+        scalars = [m_vals["M1"], m_vals["M2"], m_vals["M3"],
+                   l2["binary_scalar"], l2["geometry_scalar"], l2["language_scalar"]]
+        if7_fusion = self._if7.step(scalars)
+        orth = orthogonal_reparameterize(v, scalars)
+
         return {
             "turn": self._turn,
             "V": round(v, 6),
@@ -129,12 +138,17 @@ class V31InferenceEngine:
             "binary_scalar": round(l2["binary_scalar"], 4),
             "geometry_scalar": round(l2["geometry_scalar"], 4),
             "language_scalar": round(l2["language_scalar"], 4),
+            "if7_policy_fusion": round(if7_fusion, 6),
+            "if7_coherence": round(self._if7.coherence, 6),
+            "if7_stability_loss": round(self._if7.stability_loss, 6),
+            "if7_uncertainty": round(self._if7.uncertainty, 6),
+            "orthogonal_vector": [round(x, 4) for x in orth],
         }
 
     def run_corpus(self, corpus_path: str) -> List[Dict]:
         """
         Replay a v31 JSONL corpus through inference.
-        For each record: extract text fields → infer → attach result.
+        For each record: extract text fields â†’ infer â†’ attach result.
 
         Fixes vs original:
         - Passes entry_index (1-based) and total_entries so geometry_scalar

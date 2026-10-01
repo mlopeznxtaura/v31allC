@@ -1,0 +1,172 @@
+
+============================================================
+STEP 0: PATCH GATE THRESHOLD 0.75 -> 0.72
+============================================================
+  Done.
+
+============================================================
+STEP 1: CORPUS GROW (all sources + Q&A feedback)
+============================================================
+[layer2] GPU: NVIDIA GeForce RTX 5090
+  Existing hashes: 3513
+  corpus_4563.jsonl                             added=0
+  corpus_baby_ingested.jsonl                    added=0
+  corpus_iphone.jsonl                           added=0
+  corpus_pc.jsonl                               added=0
+  trimodal_observer_corpus.jsonl                added=0
+  corpus_v31_sample.jsonl                       added=0
+  corpus_live_qa.jsonl                          added=10
+  Total new: 10  |  Master total: 3523
+
+============================================================
+STEP 2: WEB GROW (additional sources)
+============================================================
+  wiki_gru                  chunks=29  added=29
+  wiki_lstm                 chunks=35  added=35
+  wiki_backprop             chunks=35  added=35
+  wiki_embeddings           chunks=35  added=35
+  wiki_bayesian             chunks=35  added=35
+  arxiv_moe                 chunks=5  added=5
+  wiki_agent                chunks=35  added=35
+  wiki_planning             chunks=35  added=35
+  Web added: 244  |  Master total: 3767
+
+============================================================
+STEP 3: MP4 FRAME INJECTION (new records only)
+============================================================
+  Patched 254 new records | Total: 3767 | Size: 64.7 MB
+
+============================================================
+STEP 4: DEEP TRAIN (5 cycles x 15 epochs, 4-block MoE 39.9M)
+============================================================
+  Device: cuda | NVIDIA GeForce RTX 5090
+  Total: 39,911,272  Trainable: 39,911,272
+  Checkpoint loaded  missing=0  unexpected=0
+
+  --- CYCLE 1/5 ---
+  Frames: 3,767
+  C1 E01/15  loss=711.9494  mse=711.8155  ce=1.3395  lr=1.00e-04  4.1s *
+  C1 E02/15  loss=709.5446  mse=709.4132  ce=1.3138  lr=9.87e-05  3.2s *
+  C1 E03/15  loss=708.4224  mse=708.2914  ce=1.3104  lr=9.50e-05  3.1s *
+  C1 E04/15  loss=715.4688  mse=715.3378  ce=1.3100  lr=8.91e-05  0.3s
+  C1 E05/15  loss=709.6095  mse=709.4792  ce=1.3028  lr=8.12e-05  2.3s
+  C1 E06/15  loss=710.6444  mse=710.5143  ce=1.3001  lr=7.17e-05  2.4s
+  C1 E07/15  loss=709.0869  mse=708.9573  ce=1.2958  lr=6.11e-05  2.3s
+  C1 E08/15  loss=709.4729  mse=709.3433  ce=1.2966  lr=5.00e-05  2.4s
+  C1 E09/15  loss=709.8976  mse=709.7687  ce=1.2882  lr=3.89e-05  2.5s
+  C1 E10/15  loss=711.0771  mse=710.9487  ce=1.2839  lr=2.83e-05  2.4s
+  C1 E11/15  loss=709.8572  mse=709.7295  ce=1.2768  lr=1.88e-05  2.6s
+  C1 E12/15  loss=709.2419  mse=709.1145  ce=1.2738  lr=1.09e-05  2.5s
+  C1 E13/15  loss=709.4931  mse=709.3661  ce=1.2703  lr=4.95e-06  2.5s
+  C1 E14/15  loss=709.4153  mse=709.2889  ce=1.2645  lr=1.25e-06  2.4s
+  C1 E15/15  loss=708.8780  mse=708.7518  ce=1.2624  lr=0.00e+00  2.4s
+  Cycle 1 done  best=708.4224  ckpt registered 879494ad93c4af08
+
+  --- CYCLE 2/5 ---
+  Frames: 3,767
+  C2 E01/15  loss=711.3234  mse=711.1923  ce=1.3107  lr=1.00e-04  3.4s *
+  C2 E02/15  loss=712.3124  mse=712.1817  ce=1.3067  lr=9.87e-05  2.5s
+  C2 E03/15  loss=712.1778  mse=712.0470  ce=1.3083  lr=9.50e-05  2.4s
+  C2 E04/15  loss=709.4994  mse=709.3684  ce=1.3106  lr=8.91e-05  3.2s *
+  C2 E05/15  loss=711.1089  mse=710.9783  ce=1.3061  lr=8.12e-05  2.6s
+  C2 E06/15  loss=708.2078  mse=708.0776  ce=1.3023  lr=7.17e-05  3.2s *
+  C2 E07/15  loss=710.5610  mse=710.4313  ce=1.2967  lr=6.11e-05  2.3s
+  C2 E08/15  loss=708.8735  mse=708.7438  ce=1.2973  lr=5.00e-05  2.7s
+  C2 E09/15  loss=709.7179  mse=709.5890  ce=1.2891  lr=3.89e-05  2.4s
+  C2 E10/15  loss=709.8085  mse=709.6804  ce=1.2816  lr=2.83e-05  0.4s
+  C2 E11/15  loss=709.9313  mse=709.8036  ce=1.2762  lr=1.88e-05  2.5s
+  C2 E12/15  loss=711.5180  mse=711.3909  ce=1.2709  lr=1.09e-05  2.7s
+  C2 E13/15  loss=712.8512  mse=712.7243  ce=1.2685  lr=4.95e-06  2.4s
+  C2 E14/15  loss=709.4838  mse=709.3573  ce=1.2646  lr=1.25e-06  2.4s
+  C2 E15/15  loss=709.2933  mse=709.1671  ce=1.2628  lr=0.00e+00  2.5s
+  Cycle 2 done  best=708.2078  ckpt registered 87b29a5b13bc1603
+
+  --- CYCLE 3/5 ---
+  Frames: 3,767
+  C3 E01/15  loss=708.1191  mse=707.9882  ce=1.3091  lr=1.00e-04  3.1s *
+  C3 E02/15  loss=712.9888  mse=712.8580  ce=1.3081  lr=9.87e-05  2.4s
+  C3 E03/15  loss=708.6728  mse=708.5420  ce=1.3081  lr=9.50e-05  0.2s
+  C3 E04/15  loss=711.1582  mse=711.0275  ce=1.3071  lr=8.91e-05  2.4s
+  C3 E05/15  loss=710.6870  mse=710.5566  ce=1.3033  lr=8.12e-05  2.5s
+  C3 E06/15  loss=710.8529  mse=710.7225  ce=1.3036  lr=7.17e-05  2.4s
+  C3 E07/15  loss=710.0173  mse=709.8881  ce=1.2920  lr=6.11e-05  2.4s
+  C3 E08/15  loss=710.6789  mse=710.5497  ce=1.2923  lr=5.00e-05  2.3s
+  C3 E09/15  loss=708.0790  mse=707.9503  ce=1.2866  lr=3.89e-05  3.1s *
+  C3 E10/15  loss=709.4936  mse=709.3654  ce=1.2825  lr=2.83e-05  2.5s
+  C3 E11/15  loss=709.4690  mse=709.3412  ce=1.2781  lr=1.88e-05  2.4s
+  C3 E12/15  loss=711.0165  mse=710.8894  ce=1.2717  lr=1.09e-05  2.5s
+  C3 E13/15  loss=711.0409  mse=710.9140  ce=1.2690  lr=4.95e-06  2.3s
+  C3 E14/15  loss=708.3567  mse=708.2300  ce=1.2664  lr=1.25e-06  2.2s
+  C3 E15/15  loss=709.5550  mse=709.4287  ce=1.2629  lr=0.00e+00  2.3s
+  Cycle 3 done  best=708.0790  ckpt registered f3641ae0e801e7c4
+
+  --- CYCLE 4/5 ---
+  Frames: 3,767
+  C4 E01/15  loss=711.9446  mse=711.8144  ce=1.3022  lr=1.00e-04  3.4s *
+  C4 E02/15  loss=711.1736  mse=711.0428  ce=1.3080  lr=9.87e-05  3.2s *
+  C4 E03/15  loss=709.6657  mse=709.5353  ce=1.3040  lr=9.50e-05  3.2s *
+  C4 E04/15  loss=708.8447  mse=708.7141  ce=1.3053  lr=8.91e-05  3.3s *
+  C4 E05/15  loss=707.5043  mse=707.3736  ce=1.3073  lr=8.12e-05  3.1s *
+  C4 E06/15  loss=708.7343  mse=708.6044  ce=1.2987  lr=7.17e-05  2.4s
+  C4 E07/15  loss=708.5339  mse=708.4041  ce=1.2984  lr=6.11e-05  2.3s
+  C4 E08/15  loss=709.0430  mse=708.9141  ce=1.2884  lr=5.00e-05  2.6s
+  C4 E09/15  loss=710.6595  mse=710.5309  ce=1.2865  lr=3.89e-05  0.3s
+  C4 E10/15  loss=708.7546  mse=708.6266  ce=1.2805  lr=2.83e-05  2.3s
+  C4 E11/15  loss=709.2625  mse=709.1348  ce=1.2768  lr=1.88e-05  2.5s
+  C4 E12/15  loss=710.3559  mse=710.2286  ce=1.2729  lr=1.09e-05  2.4s
+  C4 E13/15  loss=708.3965  mse=708.2697  ce=1.2679  lr=4.95e-06  2.5s
+  C4 E14/15  loss=710.9809  mse=710.8545  ce=1.2643  lr=1.25e-06  2.5s
+  C4 E15/15  loss=709.9980  mse=709.8716  ce=1.2637  lr=0.00e+00  2.6s
+  Cycle 4 done  best=707.5043  ckpt registered 3d5dc4d2240ab465
+
+  --- CYCLE 5/5 ---
+  Frames: 3,767
+  C5 E01/15  loss=710.8800  mse=710.7496  ce=1.3036  lr=1.00e-04  3.3s *
+  C5 E02/15  loss=711.7756  mse=711.6448  ce=1.3083  lr=9.87e-05  0.4s
+  C5 E03/15  loss=707.5814  mse=707.4510  ce=1.3035  lr=9.50e-05  3.1s *
+  C5 E04/15  loss=711.8377  mse=711.7072  ce=1.3053  lr=8.91e-05  2.7s
+  C5 E05/15  loss=711.0641  mse=710.9339  ce=1.3023  lr=8.12e-05  2.6s
+  C5 E06/15  loss=708.6072  mse=708.4770  ce=1.3023  lr=7.17e-05  2.6s
+  C5 E07/15  loss=709.4835  mse=709.3537  ce=1.2984  lr=6.11e-05  2.6s
+  C5 E08/15  loss=711.7184  mse=711.5894  ce=1.2901  lr=5.00e-05  2.6s
+  C5 E09/15  loss=710.5988  mse=710.4701  ce=1.2872  lr=3.89e-05  2.5s
+  C5 E10/15  loss=709.8733  mse=709.7454  ce=1.2794  lr=2.83e-05  2.5s
+  C5 E11/15  loss=707.3242  mse=707.1965  ce=1.2765  lr=1.88e-05  3.2s *
+  C5 E12/15  loss=707.7583  mse=707.6312  ce=1.2703  lr=1.09e-05  2.5s
+  C5 E13/15  loss=708.4203  mse=708.2932  ce=1.2711  lr=4.95e-06  2.4s
+  C5 E14/15  loss=708.5273  mse=708.4008  ce=1.2658  lr=1.25e-06  2.4s
+  C5 E15/15  loss=707.8348  mse=707.7084  ce=1.2637  lr=0.00e+00  0.4s
+  Cycle 5 done  best=707.3242  ckpt registered 5dac319ccbb0ce0f
+
+============================================================
+TRAINING COMPLETE
+============================================================
+
+============================================================
+STEP 5: LIVE INFERENCE Q&A (gate-probed, 15 questions)
+============================================================
+
+    Q       V  gate            M1      M2      M3  token_out
+  ----------------------------------------------------------------------
+    1  0.5750  BUILDING     1.693   0.990   1.000  retrain
+    2  0.5926  BUILDING     1.896   0.980   1.000  retrain
+    3  0.6016  BUILDING     2.059   0.971   1.000  retrain
+    4  0.6061  BUILDING     2.197   0.962   0.999  retrain
+    5  0.6160  BUILDING     2.316   0.952   0.999  retrain
+    6  0.6243  BUILDING     2.421   0.943   0.999  retrain
+    7  0.6338  BUILDING     2.515   0.935   0.998  retrain
+    8  0.6407  BUILDING     2.600   0.926   0.998  deploy
+    9  0.6487  BUILDING     2.678   0.917   0.997  deploy
+   10  0.6569  BUILDING     2.750   0.909   0.997  deploy
+   11  0.6635  BUILDING     2.817   0.901   0.997  deploy
+   12  0.6716  BUILDING     2.879   0.893   0.996  deploy
+   13  0.6828  BUILDING     2.938   0.885   0.996  deploy
+   14  0.6867  BUILDING     2.993   0.877   0.996  deploy
+   15  0.6978  BUILDING     3.045   0.870   0.995  deploy
+
+  Q&A saved: corpus_live_qa.jsonl (15 records) -> feeds into next cycle
+
+  Gate OPEN: 0/15
+  V range: 0.5750 -> 0.6978  mean=0.6399
+
+FULL CYCLE V2 COMPLETE.

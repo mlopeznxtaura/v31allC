@@ -21,7 +21,7 @@ CONVERGENCE_ACTIONS = {"converge", "checkpoint", "deploy", "monitor", "archive"}
 
 @dataclass
 class PhaseGate:
-    V_threshold: float = 0.75
+    V_threshold: float = 0.72
     M2_floor: float = 0.20
     M3_range: tuple = (0.70, 1.50)
     _history: List[bool] = field(default_factory=list)

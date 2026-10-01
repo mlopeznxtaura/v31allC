@@ -1,4 +1,4 @@
-"""stage1/core/triangulation.py — V31all
+﻿"""stage1/core/triangulation.py â€” V31all
 Triangulation: the RL value function at the center of the 7-input schema.
 
 Receives all 7 inputs:
@@ -7,18 +7,19 @@ Receives all 7 inputs:
   Self: Triangulation's own previous value (invariant preservation)
 
 Outputs 2 tokens:
-  next_frame_prediction — what happens next (string narrative)
-  language_token_output — RL-applied output token (actual decision/action)
+  next_frame_prediction â€” what happens next (string narrative)
+  language_token_output â€” RL-applied output token (actual decision/action)
 
 The triangulation value V(s) is computed as a weighted combination of all
 6 external inputs plus momentum from its own prior value.
-Invariant: V ∈ [0, 1]. The function is a soft gating mechanism that decides
+Invariant: V âˆˆ [0, 1]. The function is a soft gating mechanism that decides
 how much weight each scalar dimension carries in the final output tokens.
 """
 
 import math
 import time
 from dataclasses import dataclass, field
+from typing import Optional, Tuple, List
 from typing import Optional, Tuple
 
 
@@ -81,13 +82,13 @@ class TriangulationState:
     ) -> float:
         """
         V(s) = weighted sum of [M1_norm, M2, M3_norm, binary, geometry, language, self]
-        M1 is unbounded → soft-normalize via tanh before weighting.
-        M3 may exceed 1.0 → clamp to [0.5, 2.0] then rescale to [0, 1].
+        M1 is unbounded â†’ soft-normalize via tanh before weighting.
+        M3 may exceed 1.0 â†’ clamp to [0.5, 2.0] then rescale to [0, 1].
         """
         # normalize unbounded inputs
-        m1_norm = math.tanh(M1 / max(abs(M1) + 1e-8, 1.0))   # [-1,1] → squeeze
-        m1_norm = (m1_norm + 1.0) / 2.0                        # → [0,1]
-        m3_norm = (min(max(M3, 0.5), 2.0) - 0.5) / 1.5        # → [0,1]
+        m1_norm = math.tanh(M1 / max(abs(M1) + 1e-8, 1.0))   # [-1,1] â†’ squeeze
+        m1_norm = (m1_norm + 1.0) / 2.0                        # â†’ [0,1]
+        m3_norm = (min(max(M3, 0.5), 2.0) - 0.5) / 1.5        # â†’ [0,1]
 
         inputs = [m1_norm, M2, m3_norm, binary, geometry, language, self._prior_v]
 
@@ -186,5 +187,60 @@ def build_mathematical_relationship(
         f"Triangulation(M1={M1:.3f}, M2={M2:.3f}, M3={M3:.3f}, "
         f"binary={binary:.3f}, geometry={geometry:.3f}, language={language:.3f}"
         + (f", context={context_tags}" if context_tags else "")
-        + ") → RL value function."
+        + ") â†’ RL value function."
     )
+
+
+# ── IF7: Relational Arbitration ───────────────────────────────────────────────
+
+@dataclass
+class IF7State:
+    """
+    if_7 = Rel(Delta_if1..Delta_if6)
+    Invariant preservation, conflict arbitration, causal weighting,
+    policy fusion, uncertainty minimization, coherence stabilization.
+    Stability loss = ||Delta_if7|| per Golias spec.
+    """
+    _prev: list = field(default_factory=lambda: [0.0]*6)
+    policy_fusion: float = 0.5
+    coherence: float = 1.0
+    stability_loss: float = 0.0
+    uncertainty: float = 0.0
+
+    def step(self, scalars: list) -> float:
+        """scalars = [M1, M2, M3, binary, geometry, language]"""
+        deltas = [c - p for c, p in zip(scalars, self._prev)]
+        self._prev = list(scalars)
+        self.stability_loss = math.sqrt(sum(d**2 for d in deltas))
+        mean_d = sum(deltas) / len(deltas)
+        variance = sum((d - mean_d)**2 for d in deltas) / len(deltas)
+        conflict = math.sqrt(variance)
+        causal = abs(deltas[0])
+        self.uncertainty = min(conflict / (abs(mean_d) + 1e-8), 1.0)
+        self.coherence = 1.0 - min(self.uncertainty, 1.0)
+        invariant = math.exp(-max(abs(d) for d in deltas))
+        self.policy_fusion = (
+            0.30 * self.coherence +
+            0.25 * invariant +
+            0.20 * (1.0 - self.uncertainty) +
+            0.15 * min(causal, 1.0) +
+            0.10 * (1.0 - min(conflict, 1.0))
+        )
+        return self.policy_fusion
+
+
+def orthogonal_reparameterize(v: float, scalars: list) -> list:
+    """
+    Reparameterize each scalar into its orthogonally opposite vector.
+    bounded [0,1] -> complement (1-s).
+    M1 unbounded -> negated tanh normalization.
+    Doubles representational coverage per Golias spec.
+    """
+    result = []
+    for i, s in enumerate(scalars):
+        if i == 0:
+            norm = math.tanh(s / max(abs(s) + 1e-8, 1.0))
+            result.append(round(-norm, 4))
+        else:
+            result.append(round(1.0 - min(max(s, 0.0), 1.0), 4))
+    return result
